@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(data) {
+      return data.userId == request.auth.uid;
+    }
+
+    function validAmount(value) {
+      return value is number && value > 0;
+    }
+
+    function validType(value) {
+      return value in ['income', 'expense'];
+    }
+
+    function validCategory(value) {
+      return value in [
+        'Salary',
+        'Freelance',
+        'Scholarship',
+        'Gift',
+        'Other income',
+        'Food',
+        'Transport',
+        'Rent',
+        'Education',
+        'Shopping',
+        'Health',
+        'Entertainment',
+        'Bills',
+        'Other'
+      ];
+    }
+
+    function validDate(value) {
+      return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function validMonth(value) {
+      return value is string && value.matches('^[0-9]{4}-[0-9]{2}$');
+    }
+
+    function validDescription(value) {
+      return value is string && value.size() <= 200;
+    }
+
+    function validTransaction(data) {
+      return data.keys().hasAll([
+          'userId',
+          'amount',
+          'type',
+          'category',
+          'date',
+          'description',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isOwner(data)
+        && validAmount(data.amount)
+        && validType(data.type)
+        && validCategory(data.category)
+        && validDate(data.date)
+        && validDescription(data.description)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function validBudget(data) {
+      return data.keys().hasAll([
+          'userId',
+          'category',
+          'monthlyLimit',
+          'month',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isOwner(data)
+        && validCategory(data.category)
+        && validAmount(data.monthlyLimit)
+        && validMonth(data.month)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn() && isOwner(resource.data);
+
+      allow create: if isSignedIn() && validTransaction(request.resource.data);
+
+      allow update: if isSignedIn()
+        && isOwner(resource.data)
+        && request.resource.data.userId == resource.data.userId
+        && validTransaction(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if isSignedIn() && isOwner(resource.data);
+    }
+
+    match /budgets/{budgetId} {
+      allow read: if isSignedIn() && isOwner(resource.data);
+
+      allow create: if isSignedIn() && validBudget(request.resource.data);
+
+      allow update: if isSignedIn()
+        && isOwner(resource.data)
+        && request.resource.data.userId == resource.data.userId
+        && validBudget(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if isSignedIn() && isOwner(resource.data);
+    }
+  }
+}

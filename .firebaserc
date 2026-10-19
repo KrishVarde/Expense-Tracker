@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "expense-46f01",
+    "staging": "expense-46f01"
+  },
+  "targets": {},
+  "etags": {}
+}
